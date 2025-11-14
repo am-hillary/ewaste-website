@@ -79,4 +79,58 @@ class ComponentLoader {
         div.textContent = text;
         return div.innerHTML;
     }
+
+    // Inject component
+    async injectComponent(componentName, targetElementId, options = {}) {
+        const { data = {}, append = false, shadow = false } = options;
+
+        try {
+            const html = await this.loadComponent(componentName);
+            const targetElement = document.getElementById(targetElementId);
+
+            if (!targetElement) {
+                throw new Error(`Target element #${targetElementId} not found`);
+            }
+
+            if (!append) {
+                this._cleanupEventListeners(targetElementId);
+            }
+
+            const processedHtml = this._processTemplate(html, data);
+
+            if (shadow && this.config.enableShadowDOM) {
+                this._injectWithShadowDOM(targetElement, processedHtml);
+            } else {
+                if (append) {
+                    targetElement.insertAdjacentElement(
+                        'beforeend',
+                        processedHtml
+                    );
+                } else {
+                    targetElement.innerHTML = processedHtml;
+                }
+            }
+
+            await this.initializeComponent(
+                componentName,
+                targetElement,
+                options
+            );
+
+            return targetElement;
+        } catch (error) {
+            console.error(
+                `Failed to inject component "${componentName}":`,
+                error
+            );
+            throw error;
+        }
+    }
+
+    _injectWithShadowDOM(element, html) {
+        if (!element.shadowRoot) {
+            element.attachShadow({ mode: 'open' });
+        }
+        element.shadowRoot.innerHTML = html;
+    }
 }
